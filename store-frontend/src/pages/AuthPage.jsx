@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { login, register, saveSession } from "../services/authService";
 
 export default function AuthPage() {
   const [mode, setMode]       = useState("login");
@@ -14,21 +15,17 @@ export default function AuthPage() {
 
   async function submit(e) {
     e.preventDefault();
-    setError(""); setLoading(true);
+    setError("");
+    setLoading(true);
     try {
-      const body = mode === "login"
-        ? { username: form.username, password: form.password }
-        : { username: form.username, email: form.email, password: form.password };
+      const data = mode === "login"
+        ? await login(form.username, form.password)
+        : await register(form.username, form.email, form.password);
 
-      const res  = await fetch(`http://localhost:8080/api/auth/${mode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Something went wrong.");
-      localStorage.setItem("store_user", JSON.stringify(data));
-      navigate("/shop");
+      saveSession(data);  // stores { token, username, role } in localStorage
+
+      // Admins go to the dashboard; customers go to the shop
+      navigate(data.role === "ADMIN" ? "/admin" : "/shop");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -41,7 +38,6 @@ export default function AuthPage() {
 
       {/* ── Left panel ── */}
       <div className="hidden lg:flex flex-col justify-between bg-brand p-12 relative overflow-hidden">
-        {/* decorative blobs */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-72 h-72 bg-accent/15 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
@@ -81,7 +77,9 @@ export default function AuthPage() {
             {mode === "login" ? "Welcome back" : "Create account"}
           </h1>
           <p className="text-sm text-muted mb-6">
-            {mode === "login" ? "Sign in to access the store." : "Fill in your details to get started."}
+            {mode === "login"
+              ? "Sign in to access the store."
+              : "Fill in your details to get started."}
           </p>
 
           {error && (
@@ -92,7 +90,9 @@ export default function AuthPage() {
 
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Username</label>
+              <label className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                Username
+              </label>
               <input
                 name="username" type="text" required
                 placeholder="e.g. john_doe"
@@ -103,7 +103,9 @@ export default function AuthPage() {
 
             {mode === "register" && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Email</label>
+                <label className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                  Email
+                </label>
                 <input
                   name="email" type="email" required
                   placeholder="you@example.com"
@@ -114,7 +116,9 @@ export default function AuthPage() {
             )}
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-muted">Password</label>
+              <label className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                Password
+              </label>
               <input
                 name="password" type="password" required
                 placeholder="Enter password"
@@ -127,13 +131,17 @@ export default function AuthPage() {
               type="submit" disabled={loading}
               className="bg-brand text-white py-3 rounded-xl font-semibold text-sm mt-1 hover:bg-neutral-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
+              {loading
+                ? "Please wait…"
+                : mode === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
 
-          <p className="text-center text-[11px] text-muted bg-stone rounded-xl px-4 py-2.5 mt-5">
-            <strong>Dev mode:</strong> the backend stub accepts any credentials.
-          </p>
+          {mode === "register" && (
+            <p className="text-center text-[11px] text-muted bg-stone rounded-xl px-4 py-2.5 mt-5">
+              Registering as <strong>admin</strong> gives admin access. All other usernames get customer access.
+            </p>
+          )}
 
           <Link to="/" className="block text-center text-sm text-muted mt-5 hover:text-brand transition-colors">
             ← Back to home

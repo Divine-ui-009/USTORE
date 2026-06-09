@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { getSession, clearSession, isAdmin } from "../services/authService";
 import { Plus, Pencil, Trash2, X, ArrowLeft } from "lucide-react";
 import { getProducts, addProduct, updateProduct, deleteProduct } from "../services/productService";
 
@@ -7,6 +8,7 @@ const CATS  = ["MEN", "WOMEN", "KIDS", "SPORTS", "OTHER"];
 const EMPTY = { name: "", description: "", price: "", quantity: "", imageUrl: "", category: "OTHER", isAvailable: true };
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(false);
@@ -37,25 +39,67 @@ export default function AdminPage() {
   }
 
   async function save(e) {
-    e.preventDefault(); setSaving(true); setError("");
-    const payload = { ...form, price: parseFloat(form.price), quantity: parseInt(form.quantity, 10) };
-    try {
-      editing ? await updateProduct(editing, payload) : await addProduct(payload);
-      setModal(false); load();
-    } catch { setError("Save failed. Check all fields."); }
-    finally { setSaving(false); }
-  }
+  e.preventDefault();
+  setSaving(true);
+  setError("");
 
-  async function del(id) {
-    if (!confirm("Delete this product?")) return;
-    try { await deleteProduct(id); load(); }
-    catch { setError("Delete failed."); }
+  const payload = {
+    ...form,
+    price:    parseFloat(form.price),
+    quantity: parseInt(form.quantity, 10),
+  };
+
+  // Basic client-side validation before hitting the server
+  if (!payload.name?.trim()) { setError("Name is required."); setSaving(false); return; }
+  if (isNaN(payload.price) || payload.price < 0) { setError("Enter a valid price."); setSaving(false); return; }
+  if (isNaN(payload.quantity) || payload.quantity < 0) { setError("Enter a valid quantity."); setSaving(false); return; }
+
+  try {
+    if (editing) {
+      await updateProduct(editing, payload);
+    } else {
+      await addProduct(payload);
+    }
+    setModal(false);
+    load();
+  } catch (err) {
+    // err.message now contains the real reason from the interceptor above
+    setError(err.message);
+  } finally {
+    setSaving(false);
   }
+}
+
+async function del(id) {
+  if (!confirm("Delete this product?")) return;
+  try {
+    await deleteProduct(id);
+    load();
+  } catch (err) {
+    setError(err.message);
+  }
+}
 
   const fmt = v => `$${Number(v ?? 0).toFixed(2)}`;
   const field = "flex flex-col gap-1";
   const label = "text-[10px] font-bold uppercase tracking-widest text-muted";
   const input = "bg-sand border border-border rounded-xl px-4 py-2.5 text-sm text-brand focus:outline-none focus:border-brand transition-colors";
+
+ // Redirect non-admins away
+  const session = getSession();
+  if (!session || session.role !== "ADMIN") {
+    return (
+      <div className="min-h-screen bg-sand flex items-center justify-center font-sans">
+        <div className="bg-white rounded-3xl p-12 text-center shadow-card max-w-sm w-full">
+          <h2 className="font-display text-2xl font-bold text-brand mb-3">Access Denied</h2>
+          <p className="text-muted text-sm mb-6">You need an admin account to view this page.</p>
+          <Link to="/auth" className="bg-brand text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-neutral-800 transition-colors">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-sand font-sans">
@@ -69,9 +113,20 @@ export default function AdminPage() {
             </Link>
             <span className="text-xl font-bold tracking-widest text-brand">USTORE Admin</span>
           </div>
-          <button onClick={openCreate} className="flex items-center gap-1.5 bg-brand text-white text-sm font-semibold px-4 py-2.5 rounded-full hover:bg-neutral-800 transition-colors">
-            <Plus size={16} /> Add Product
-          </button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted">
+              Signed in as <strong className="text-brand">{session.username}</strong>
+            </span>
+            <button
+              onClick={() => { clearSession(); navigate("/"); }}
+              className="text-sm font-semibold text-muted border border-border px-4 py-2 rounded-full hover:border-brand hover:text-brand transition-all"
+            >
+              Logout
+            </button>
+            <button onClick={openCreate} className="flex items-center gap-1.5 bg-brand text-white text-sm font-semibold px-4 py-2.5 rounded-full hover:bg-neutral-800 transition-colors">
+              <Plus size={16} /> Add Product
+            </button>
+          </div>
         </div>
       </header>
 
