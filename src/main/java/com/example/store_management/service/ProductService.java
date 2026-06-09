@@ -4,6 +4,8 @@ import com.example.store_management.model.Category;
 import com.example.store_management.model.Product;
 import com.example.store_management.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -16,9 +18,6 @@ public class ProductService {
     @Autowired
     private ProductRepository productRepository;
 
-    // -------------------------------------------------------------------
-    // BASIC CRUD
-    // -------------------------------------------------------------------
 
     public Product addProduct(Product product) {
         return productRepository.save(product);
@@ -51,9 +50,6 @@ public class ProductService {
         productRepository.deleteById(id);
     }
 
-    // -------------------------------------------------------------------
-    // DERIVED QUERIES
-    // -------------------------------------------------------------------
 
     public List<Product> getProductsByCategory(Category category) {
         return productRepository.findByCategory(category);
@@ -71,9 +67,6 @@ public class ProductService {
         return productRepository.findByNameContainingIgnoreCase(keyword);
     }
 
-    // -------------------------------------------------------------------
-    // JPQL NAMED PARAMETER QUERIES
-    // -------------------------------------------------------------------
 
     public List<Product> getProductsByCategoryJpql(Category category) {
         return productRepository.findByCategoryJpql(category);
@@ -87,9 +80,6 @@ public class ProductService {
         return productRepository.findByPriceRange(min, max);
     }
 
-    // -------------------------------------------------------------------
-    // JPQL INDEXED PARAMETER QUERIES
-    // -------------------------------------------------------------------
 
     public List<Product> getByAvailabilityIndexed(boolean available) {
         return productRepository.findByAvailabilityIndexed(available);
@@ -99,9 +89,6 @@ public class ProductService {
         return productRepository.findByCategoryAndMinQuantity(category, minQty);
     }
 
-    // -------------------------------------------------------------------
-    // JPQL SORTED QUERY
-    // -------------------------------------------------------------------
 
     public List<Product> getAllProductsSortedByPrice(String direction) {
         Sort sort = direction.equalsIgnoreCase("desc")
@@ -114,9 +101,6 @@ public class ProductService {
         return productRepository.findAllSorted(Sort.by("name").ascending());
     }
 
-    // -------------------------------------------------------------------
-    // @Modifying JPQL UPDATES
-    // -------------------------------------------------------------------
 
     public int updateAvailabilityByCategory(Category category, boolean available) {
         return productRepository.updateAvailabilityByCategory(category, available);
@@ -127,9 +111,6 @@ public class ProductService {
         return productRepository.applyDiscountToCategory(discountPercent / 100.0, category);
     }
 
-    // -------------------------------------------------------------------
-    // NATIVE SQL QUERIES
-    // -------------------------------------------------------------------
 
     public List<Product> getAllProductsNative() {
         return productRepository.findAllNative();
@@ -145,6 +126,10 @@ public class ProductService {
 
     public List<Product> getAvailableProductsNative() {
         return productRepository.findAvailableNative();
+    }
+
+    public Page<Product> getProductsPaged(Pageable pageable) {
+        return productRepository.findAll(pageable);
     }
 
     public int clearStockByCategory(String category) {

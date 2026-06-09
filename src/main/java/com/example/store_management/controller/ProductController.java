@@ -4,6 +4,10 @@ import com.example.store_management.model.Category;
 import com.example.store_management.model.Product;
 import com.example.store_management.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,10 +19,6 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
-
-    // -------------------------------------------------------------------
-    // BASIC CRUD
-    // -------------------------------------------------------------------
 
     @PostMapping
     public ResponseEntity<Product> addProduct(@RequestBody Product product) {
@@ -52,9 +52,6 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
-    // -------------------------------------------------------------------
-    // FILTER / SEARCH ENDPOINTS
-    // -------------------------------------------------------------------
 
     // GET /api/products/category/MEN
     @GetMapping("/category/{category}")
@@ -117,6 +114,23 @@ public class ProductController {
             @PathVariable Category category,
             @RequestParam(defaultValue = "1") int qty) {
         return ResponseEntity.ok(productService.getByCategoryAndMinQuantity(category, qty));
+    }
+
+    // GET /api/products/paged?page=0&size=9&sortBy=price&dir=asc
+    @GetMapping("/paged")
+    public ResponseEntity<Page<Product>> getProductsPaged(
+            @RequestParam(defaultValue = "0")     int page,
+            @RequestParam(defaultValue = "9")     int size,
+            @RequestParam(defaultValue = "id")    String sortBy,
+            @RequestParam(defaultValue = "asc")   String dir) {
+
+        Sort sort = dir.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Product> result = productService.getProductsPaged(pageable);
+        return ResponseEntity.ok(result);
     }
 
     // -------------------------------------------------------------------
