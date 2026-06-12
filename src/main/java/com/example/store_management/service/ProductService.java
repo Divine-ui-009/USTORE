@@ -132,6 +132,10 @@ public class ProductService {
         return productRepository.findAll(pageable);
     }
 
+    public Page<Product> getProductsPagedByCategory(Category category, Pageable pageable) {
+        return productRepository.findByCategory(category, pageable);
+    }
+
     public int clearStockByCategory(String category) {
         return productRepository.clearStockByCategory(category);
     }

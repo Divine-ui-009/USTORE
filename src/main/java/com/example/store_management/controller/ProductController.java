@@ -116,26 +116,34 @@ public class ProductController {
         return ResponseEntity.ok(productService.getByCategoryAndMinQuantity(category, qty));
     }
 
-    // GET /api/products/paged?page=0&size=9&sortBy=price&dir=asc
     @GetMapping("/paged")
     public ResponseEntity<Page<Product>> getProductsPaged(
             @RequestParam(defaultValue = "0")     int page,
-            @RequestParam(defaultValue = "9")     int size,
+            @RequestParam(defaultValue = "8")     int size,
             @RequestParam(defaultValue = "id")    String sortBy,
-            @RequestParam(defaultValue = "asc")   String dir) {
+            @RequestParam(defaultValue = "desc")  String dir,
+            @RequestParam(required = false)       String category) {
 
         Sort sort = dir.equalsIgnoreCase("desc")
                 ? Sort.by(sortBy).descending()
                 : Sort.by(sortBy).ascending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Product> result = productService.getProductsPaged(pageable);
-        return ResponseEntity.ok(result);
+
+        // If a category filter is provided, use the category-specific query
+        if (category != null && !category.isBlank()) {
+            try {
+                Category cat = Category.valueOf(category.toUpperCase());
+                return ResponseEntity.ok(productService.getProductsPagedByCategory(cat, pageable));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+
+        return ResponseEntity.ok(productService.getProductsPaged(pageable));
     }
 
-    // -------------------------------------------------------------------
-    // BULK UPDATE ENDPOINTS
-    // -------------------------------------------------------------------
+
 
     // PUT /api/products/category/MEN/availability?available=false
     @PutMapping("/category/{category}/availability")

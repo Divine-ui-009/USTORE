@@ -8,7 +8,7 @@ export async function login(username, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Login failed.");
-  return data; // { token, username, role }
+  return data;
 }
 
 export async function register(username, email, password) {
@@ -19,7 +19,23 @@ export async function register(username, email, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Registration failed.");
-  return data; // { token, username, role }
+  return data;
+}
+
+export async function logout() {
+  const session = getSession();
+  if (session?.username) {
+    try {
+      await fetch(`${API}/logout`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ username: session.username }),
+      });
+    } catch {
+      // don't block UI if this fails
+    }
+  }
+  clearSession();
 }
 
 export function saveSession(data) {
@@ -36,6 +52,5 @@ export function clearSession() {
 }
 
 export function isAdmin() {
-  const s = getSession();
-  return s?.role === "ADMIN";
+  return getSession()?.role === "ADMIN";
 }

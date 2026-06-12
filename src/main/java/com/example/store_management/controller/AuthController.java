@@ -4,6 +4,7 @@ import com.example.store_management.config.JwtUtil;
 import com.example.store_management.model.Role;
 import com.example.store_management.model.User;
 import com.example.store_management.repository.UserRepository;
+import com.example.store_management.service.ActiveUserRegistry;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.AuthenticationException;
@@ -20,20 +21,23 @@ public class AuthController {
     private final PasswordEncoder       passwordEncoder;
     private final AuthenticationManager authManager;
     private final JwtUtil               jwtUtil;
+    private final ActiveUserRegistry    activeUserRegistry;
 
-    // The one fixed admin username — everyone else becomes CUSTOMER
     private static final String ADMIN_USERNAME = "admin";
 
     public AuthController(UserRepository        userRepository,
                           PasswordEncoder       passwordEncoder,
                           AuthenticationManager authManager,
-                          JwtUtil               jwtUtil) {
-        this.userRepository  = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.authManager     = authManager;
-        this.jwtUtil         = jwtUtil;
+                          JwtUtil               jwtUtil,
+                          ActiveUserRegistry    activeUserRegistry) {
+        this.userRepository     = userRepository;
+        this.passwordEncoder    = passwordEncoder;
+        this.authManager        = authManager;
+        this.jwtUtil            = jwtUtil;
+        this.activeUserRegistry = activeUserRegistry;
     }
 
+    // POST /api/auth/register
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
         String username = body.get("username");
@@ -41,21 +45,29 @@ public class AuthController {
         String password = body.get("password");
 
         if (username == null || email == null || password == null)
-            return ResponseEntity.badRequest().body(Map.of("message", "All fields are required."));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "All fields are required."));
 
         if (userRepository.existsByUsername(username))
-            return ResponseEntity.badRequest().body(Map.of("message", "Username already taken."));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Username already taken."));
 
         if (userRepository.existsByEmail(email))
-            return ResponseEntity.badRequest().body(Map.of("message", "Email already registered."));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Email already registered."));
 
-        // The reserved username "admin" gets the ADMIN role; everyone else is CUSTOMER
-        Role role = username.equalsIgnoreCase(ADMIN_USERNAME) ? Role.ADMIN : Role.CUSTOMER;
+        Role role = username.equalsIgnoreCase(ADMIN_USERNAME)
+                ? Role.ADMIN : Role.CUSTOMER;
 
-        User user = new User(username, email, passwordEncoder.encode(password), role);
+        User user = new User(username, email,
+                passwordEncoder.encode(password), role);
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRole().name());
+        // Mark as logged in immediately after registration
+        activeUserRegistry.userLoggedIn(user.getUsername());
+
+        String token = jwtUtil.generateToken(
+                user.getUsername(), user.getRole().name());
 
         return ResponseEntity.ok(Map.of(
                 "token",    token,
@@ -64,29 +76,47 @@ public class AuthController {
         ));
     }
 
+    // POST /api/auth/login
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
         String username = body.get("username");
         String password = body.get("password");
 
         if (username == null || password == null)
-            return ResponseEntity.badRequest().body(Map.of("message", "Username and password required."));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Username and password required."));
 
         try {
             authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(username, password)
-            );
+                    new UsernamePasswordAuthenticationToken(username, password));
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).body(Map.of("message", "Invalid username or password."));
+            return ResponseEntity.status(401)
+                    .body(Map.of("message", "Invalid username or password."));
         }
 
-        User user  = userRepository.findByUsername(username).orElseThrow();
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRole().name());
+        User user = userRepository.findByUsername(username).orElseThrow();
+
+        // Mark as logged in
+        activeUserRegistry.userLoggedIn(user.getUsername());
+
+        String token = jwtUtil.generateToken(
+                user.getUsername(), user.getRole().name());
 
         return ResponseEntity.ok(Map.of(
                 "token",    token,
                 "username", user.getUsername(),
                 "role",     user.getRole().name()
         ));
+    }
+
+    // POST /api/auth/logout
+    // Body: { "username": "..." }
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        if (username != null) {
+            activeUserRegistry.userLoggedOut(username);
+        }
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully."));
     }
 }

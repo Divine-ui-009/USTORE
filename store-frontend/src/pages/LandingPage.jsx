@@ -5,6 +5,7 @@ import {
   ShieldCheck, Truck, Leaf, Globe,
 } from "lucide-react";
 import { getProducts } from "../services/productService";
+import { getSession } from "../services/authService";
 
 const features = [
   { icon: Leaf,        title: "Sustainable Materials", desc: "We believe great style shouldn't come at the planet's expense." },
@@ -17,18 +18,19 @@ const promos = [
   {
     label: "20% OFF",
     title: "Explore All Formal Wear",
-    image: "https://images.unsplash.com/photo-1594938298603-c8148c4b984b?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1523381294911-8d3cead13475?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
   },
   {
     label: "25% OFF",
     title: "Grab The Latest Sportswear",
-    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80",
+    image: "https://i.pinimg.com/736x/57/49/52/574952eb633f4cb87dcddf107d08aa1b.jpg",
   },
 ];
 
 export default function LandingPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const session                 = getSession();
 
   useEffect(() => {
     getProducts()
@@ -53,9 +55,19 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-5 text-brand">
-            <Link to="/shop"  aria-label="Search"><Search  size={20} className="hover:text-accent transition-colors cursor-pointer" /></Link>
-            <button           aria-label="Cart">  <ShoppingCart size={20} className="hover:text-accent transition-colors" /></button>
-            <Link to="/auth"  aria-label="Account"><User   size={20} className="hover:text-accent transition-colors" /></Link>
+            <Link to="/shop" aria-label="Search">
+              <Search size={20} className="hover:text-accent transition-colors cursor-pointer" />
+            </Link>
+            <Link to="/cart" aria-label="Cart">
+              <ShoppingCart size={20} className="hover:text-accent transition-colors cursor-pointer" />
+            </Link>
+            {session ? (
+              session.role === "ADMIN"
+                ? <Link to="/admin" className="text-sm font-semibold bg-brand text-white px-4 py-1.5 rounded-full hover:bg-neutral-800 transition-colors">Dashboard</Link>
+                : <Link to="/orders" aria-label="Account"><User size={20} className="hover:text-accent transition-colors" /></Link>
+            ) : (
+              <Link to="/auth" aria-label="Account"><User size={20} className="hover:text-accent transition-colors" /></Link>
+            )}
           </div>
         </nav>
       </header>
@@ -70,7 +82,6 @@ export default function LandingPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
 
-          {/* Text */}
           <div className="relative z-10 flex flex-col justify-center px-10 md:px-16 py-20 text-white max-w-xl min-h-[580px]">
             <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-4 opacity-90">
               New Collection
@@ -82,16 +93,12 @@ export default function LandingPage() {
               Buy classic, modern, and vintage products with ease. Quality guaranteed.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link
-                to="/auth"
-                className="px-6 py-3 rounded-full font-semibold text-sm border border-white/50 bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-              >
-                Get Started
+              <Link to={session ? "/shop" : "/auth"}
+                className="px-6 py-3 rounded-full font-semibold text-sm border border-white/50 bg-white/20 backdrop-blur hover:bg-white/30 transition-all">
+                {session ? "My Account" : "Get Started"}
               </Link>
-              <Link
-                to="/shop"
-                className="px-6 py-3 rounded-full font-semibold text-sm bg-white text-brand flex items-center gap-2 hover:bg-stone transition-colors"
-              >
+              <Link to="/shop"
+                className="px-6 py-3 rounded-full font-semibold text-sm bg-white text-brand flex items-center gap-2 hover:bg-stone transition-colors">
                 Visit Shop <ArrowRight size={15} />
               </Link>
             </div>
@@ -137,10 +144,8 @@ export default function LandingPage() {
                   {label}
                 </span>
                 <h3 className="font-display text-3xl font-bold leading-tight mb-4">{title}</h3>
-                <Link
-                  to="/shop"
-                  className="bg-white text-brand text-sm font-semibold px-5 py-2 rounded-full w-fit hover:bg-stone transition-colors"
-                >
+                <Link to="/shop"
+                  className="bg-white text-brand text-sm font-semibold px-5 py-2 rounded-full w-fit hover:bg-stone transition-colors">
                   Shop Now →
                 </Link>
               </div>
@@ -160,17 +165,17 @@ export default function LandingPage() {
         ) : products.length === 0 ? (
           <div className="text-center py-16 flex flex-col items-center gap-4">
             <p className="text-muted">No products yet.</p>
-            <Link to="/admin" className="bg-brand text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-neutral-800 transition-colors">
-              Add Products
-            </Link>
+            {session?.role === "ADMIN" && (
+              <Link to="/admin" className="bg-brand text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-neutral-800 transition-colors">
+                Add Products
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {products.map(p => (
-              <Link
-                key={p.id} to="/shop"
-                className="bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-hover hover:-translate-y-1 transition-all duration-300 block"
-              >
+              <Link key={p.id} to="/shop"
+                className="bg-white rounded-3xl overflow-hidden shadow-card hover:shadow-hover hover:-translate-y-1 transition-all duration-300 block">
                 <div className="overflow-hidden">
                   <img
                     src={p.imageUrl || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80"}
